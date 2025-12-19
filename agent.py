@@ -1,0 +1,69 @@
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.agents import initialize_agent, AgentType
+from dotenv import load_dotenv
+import os
+
+from tools import (
+    search_patient,
+    check_insurance,
+    find_slots,
+    book_appointment
+)
+
+load_dotenv()
+
+def main():
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        print("GOOGLE_API_KEY not found in .env file")
+        return
+
+    # ✅ Gemini 2.5 Flash
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash",
+        temperature=0,
+        api_key=api_key
+    )
+
+    agent = initialize_agent(
+        tools=[
+            search_patient,
+            check_insurance,
+            find_slots,
+            book_appointment
+        ],
+        llm=llm,
+        agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+        verbose=True
+    )
+
+    print("Clinical Workflow Agent started")
+    print("Type 'q' to quit safely")
+
+    while True:
+        try:
+            user_input = input("\nClinician : ").strip()
+
+            if user_input.lower() == "q":
+                print("Clinical Workflow Agent stopped safely")
+                break
+
+            if not user_input:
+                print("Empty input ignored.")
+                continue
+
+            # ✅ invoke() replaces deprecated run()
+            result = agent.invoke({"input": user_input})
+            print("\nSystem Output:", result["output"])
+
+        except KeyboardInterrupt:
+            print("\nSession interrupted by user")
+            break
+        except Exception as e:
+            print("Unable to process request:", e)
+            print("Agent is still running.")
+
+    print("Shutdown complete")
+
+if __name__ == "__main__":
+    main()
